@@ -9,3 +9,6 @@ serde_norway = "0"
 logos = "0"
 
 anyhow.workspace = true
+
+[dev-dependencies]
+assert_matches = "1"

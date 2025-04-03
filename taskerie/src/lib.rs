@@ -1,4 +1,6 @@
 mod config;
+mod model;
+mod service;
 
 use std::path::Path;
 
