@@ -1,0 +1,6 @@
+[workspace]
+resolver = "3"
+members = ["taskerie", "taskerie-core"]
+
+[workspace.dependencies]
+anyhow = "1"

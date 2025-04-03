@@ -1,0 +1,26 @@
+tasks:
+  greet_john:
+    actions:
+      - :greet --name john --age 30
+    on_failure:
+      - :generic_error_message
+
+  greet:
+    params:
+      name:
+      age:
+    actions:
+      - echo "hello {{ name }}, you are {{ age }}"
+    on_success:
+      - :open_browser --url http://{{ name }}.com/
+
+  open_browser:
+    params:
+      url:
+        default: https://google.com
+    actions:
+      - start microsoft-edge:{{ url }}
+
+  generic_error_message:
+    actions:
+      - echo "An error has occurred"

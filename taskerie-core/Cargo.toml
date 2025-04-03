@@ -1,0 +1,14 @@
+[package]
+name = "taskerie-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_norway = "0"
+itertools = "0"
+try_map = "0"
+logos = "0"
+indexmap = { version = "2", features = ["serde"] }
+
+anyhow.workspace = true
