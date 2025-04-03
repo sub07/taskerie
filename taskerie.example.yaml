@@ -3,7 +3,7 @@ tasks:
     commands:
       - _greet ange 30
     on_failure:
-      - generic_error_popup
+      - _generic_error_popup
 
   prepare_greet:
     commands:
@@ -17,8 +17,6 @@ tasks:
         type: integer
     commands:
       - echo hello ${name}, you are ${age}
-    before:
-      - prepare_greet
     on_success:
       - open_browser http://${name}.com/
 
@@ -28,7 +26,7 @@ tasks:
         type: string
         default: https://google.com
     commands:
-      - open edge.exe ${url}
+      - edge.exe ${url}
 
   generic_error_popup:
     commands:
