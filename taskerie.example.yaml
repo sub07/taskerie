@@ -1,0 +1,35 @@
+tasks:
+  greet_ange:
+    commands:
+      - _greet ange 30
+    on_failure:
+      - generic_error_popup
+
+  prepare_greet:
+    commands:
+      - echo "Getting ready"
+
+  greet:
+    args:
+      name:
+        type: string
+      age:
+        type: integer
+    commands:
+      - echo hello ${name}, you are ${age}
+    before:
+      - prepare_greet
+    on_success:
+      - open_browser http://${name}.com/
+
+  open_browser:
+    args:
+      url:
+        type: string
+        default: https://google.com
+    commands:
+      - open edge.exe ${url}
+
+  generic_error_popup:
+    commands:
+      - message_box "Une erreur est survenue"
