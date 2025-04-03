@@ -10,6 +10,7 @@ pub enum Argument {
     Interpolated(String),
 }
 
+#[derive(Debug)]
 pub struct Action {
     pub name: String,
     pub arguments: Vec<Argument>,

@@ -1,12 +1,12 @@
 tasks:
   greet_ange:
-    commands:
+    actions:
       - _greet ange 30
     on_failure:
       - _generic_error_popup
 
   prepare_greet:
-    commands:
+    actions:
       - echo "Getting ready"
 
   greet:
@@ -15,7 +15,7 @@ tasks:
         type: string
       age:
         type: integer
-    commands:
+    actions:
       - echo hello ${name}, you are ${age}
     on_success:
       - open_browser http://${name}.com/
@@ -25,9 +25,9 @@ tasks:
       url:
         type: string
         default: https://google.com
-    commands:
+    actions:
       - edge.exe ${url}
 
   generic_error_popup:
-    commands:
+    actions:
       - message_box "Une erreur est survenue"

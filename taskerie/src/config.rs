@@ -10,7 +10,7 @@ pub struct Root {
 
 #[derive(Deserialize, Debug)]
 pub struct Task {
-    pub commands: Vec<String>,
+    pub actions: Vec<String>,
     #[serde(default)]
     pub on_failure: Vec<String>,
     #[serde(default)]

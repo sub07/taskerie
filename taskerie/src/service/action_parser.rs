@@ -1,4 +1,4 @@
-use anyhow::{bail, ensure};
+use anyhow::bail;
 use logos::Logos;
 
 use crate::model::action::{Action, Argument, Target};
@@ -6,11 +6,11 @@ use crate::model::action::{Action, Argument, Target};
 #[derive(Logos, PartialEq)]
 #[logos(skip r"[\s\t]+")]
 enum ActionToken {
-    #[regex(r"[^ ]+", priority = 3)]
+    #[regex(r"[^\s]+", priority = 3)]
     Word,
     #[regex(r#""[^"]*""#)]
     WordGroup,
-    #[regex(r"\$\{[^ ]+}")]
+    #[regex(r"\$\{[^\s]+}")]
     InterpolatedWord,
 }
 
@@ -19,14 +19,16 @@ impl TryFrom<String> for Action {
 
     fn try_from(action: String) -> anyhow::Result<Self> {
         let mut lexer = ActionToken::lexer(&action);
-        ensure!(
-            matches!(lexer.next(), Some(Ok(ActionToken::Word))),
-            "The first word must be a command or a task name"
-        ); // Maybe allow interpolated value for the action name
+        match lexer.next() {
+            Some(Ok(ActionToken::Word))
+            | Some(Ok(ActionToken::WordGroup))
+            | Some(Ok(ActionToken::InterpolatedWord)) => {}
+            _ => bail!("Expected action name"),
+        }
         let action_name = lexer.slice();
         let (action_name, action_target) =
+            // Find another syntax for task invocation (_ is ugly)
             if let Some(stripped_action_name) = action_name.strip_prefix("_") {
-                // Find another syntax for task invocation (it's ugly)
                 (stripped_action_name, Target::Task)
             } else {
                 (action_name, Target::Program)
@@ -271,5 +273,12 @@ mod test {
             action.arguments
         );
         assert_matches!(action.target, Target::Task);
+    }
+
+    #[test]
+    fn test_empty_action() {
+        let input = "".to_string();
+        let action = Action::try_from(input);
+        assert_eq!("Expected action name", &action.unwrap_err().to_string())
     }
 }
