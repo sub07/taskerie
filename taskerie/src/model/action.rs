@@ -8,6 +8,7 @@ pub enum Target {
 pub enum Argument {
     Literal(String),
     Interpolated(String),
+    Composite(String),
 }
 
 #[derive(Debug)]

@@ -1,68 +1,78 @@
-use anyhow::bail;
-use logos::Logos;
+use std::sync::LazyLock;
 
-use crate::model::action::{Action, Argument, Target};
+use anyhow::{anyhow, bail, ensure};
+use logos::{Lexer, Logos};
+use regex::Regex;
 
-#[derive(Logos, PartialEq)]
+use crate::model::action::{self, Action, Argument, Target};
+
+#[derive(Logos, PartialEq, Debug)]
 #[logos(skip r"[\s\t]+")]
-enum ActionToken {
-    #[regex(r"[^\s]+", priority = 3)]
+enum ArgumentsContext {
+    #[regex(r"[^\s]+")]
     Word,
     #[regex(r#""[^"]*""#)]
     WordGroup,
-    #[regex(r"\$\{[^\s]+}")]
-    InterpolatedWord,
 }
+
+#[derive(Logos, PartialEq, Clone)]
+enum ArgumentContext {
+    #[regex(".+")]
+    Literal,
+    #[token("${", eval_interpolation)]
+    Interpolated(String),
+}
+
+fn eval_interpolation(lexer: &mut Lexer<ArgumentContext>) -> Option<String> {
+    let mut interpolated_lexer = lexer.clone().morph::<InterpolationContext>();
+    if let Some(Ok(InterpolationContext::Word)) = interpolated_lexer.next() {
+        let var = interpolated_lexer.slice().to_owned();
+        if let Some(Ok(InterpolationContext::End)) = interpolated_lexer.next() {
+            *lexer = interpolated_lexer.morph();
+            return Some(var);
+        }
+    }
+    None
+}
+
+#[derive(Logos, PartialEq)]
+enum InterpolationContext {
+    #[regex(r"[^\s}]+")]
+    Word,
+    #[token("}")]
+    End,
+}
+
+static ACTION_NAME_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\A[^\s]+").unwrap());
 
 impl TryFrom<String> for Action {
     type Error = anyhow::Error;
 
-    fn try_from(action: String) -> anyhow::Result<Self> {
-        let mut lexer = ActionToken::lexer(&action);
-        match lexer.next() {
-            Some(Ok(ActionToken::Word))
-            | Some(Ok(ActionToken::WordGroup))
-            | Some(Ok(ActionToken::InterpolatedWord)) => {}
-            _ => bail!("Expected action name"),
-        }
-        let action_name = lexer.slice();
-        let (action_name, action_target) =
-            // Find another syntax for task invocation (_ is ugly)
-            if let Some(stripped_action_name) = action_name.strip_prefix("_") {
-                (stripped_action_name, Target::Task)
+    fn try_from(action_str: String) -> anyhow::Result<Self> {
+        ensure!(!action_str.is_empty(), "Empty action is invalid");
+
+        // Action name parsing
+        let action_name_match = ACTION_NAME_REGEX
+            .find(&action_str)
+            .ok_or(anyhow!("Invalid action name"))?;
+
+        let action_name = action_name_match.as_str();
+        let action_str = &action_str[action_name_match.end()..];
+
+        let (action_name, action_type) =
+            if let Some(underscore_prefixed_action_name) = action_name.strip_prefix("_") {
+                (underscore_prefixed_action_name, action::Target::Task)
             } else {
-                (action_name, Target::Program)
+                (action_name, action::Target::Program)
             };
 
-        let mut arguments = Vec::new();
+        // Arguments parsing
+        let mut args_lex = ArgumentsContext::lexer(action_str);
 
-        while let Some(token) = lexer.next() {
-            match token {
-                Ok(token) => {
-                    let argument = match token {
-                        ActionToken::Word => Argument::Literal(lexer.slice().to_owned()),
-                        ActionToken::WordGroup => {
-                            Argument::Literal(lexer.slice().trim_matches('"').to_owned())
-                        }
-                        ActionToken::InterpolatedWord => {
-                            let token_str = lexer.slice();
-                            let word_end = token_str.len() - 1;
-                            Argument::Interpolated(token_str[2..word_end].to_owned())
-                        }
-                    };
-                    arguments.push(argument);
-                }
-                Err(_) => {
-                    bail!("Syntax error near col {}", lexer.span().end)
-                }
-            }
+        while let Some(Ok(token)) = args_lex.next() {
+            dbg!((token, args_lex.slice()));
         }
-
-        Ok(Action {
-            name: action_name.to_owned(),
-            arguments,
-            target: action_target,
-        })
+        todo!()
     }
 }
 
