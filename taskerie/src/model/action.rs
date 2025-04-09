@@ -1,14 +1,18 @@
-#[derive(Debug)]
+#[derive(PartialEq, Debug)]
 pub enum Target {
     Task,
-    Program,
+    External,
 }
 
 #[derive(PartialEq, Debug)]
-pub enum Argument {
+pub enum ArgumentComponent {
     Literal(String),
     Interpolated(String),
-    Composite(String),
+}
+
+#[derive(PartialEq, Debug)]
+pub struct Argument {
+    pub components: Vec<ArgumentComponent>,
 }
 
 #[derive(Debug)]
