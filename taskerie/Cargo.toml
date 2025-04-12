@@ -6,10 +6,6 @@ edition = "2024"
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_norway = "0"
-logos = "0"
-regex = "1"
+itertools = "0"
 
 anyhow.workspace = true
-
-[dev-dependencies]
-assert_matches = "1"

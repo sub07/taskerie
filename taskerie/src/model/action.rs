@@ -4,7 +4,7 @@ pub enum Target {
     External,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum ArgumentComponent {
     Literal(String),
     Interpolated(String),
