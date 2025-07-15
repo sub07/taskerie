@@ -18,19 +18,20 @@ pub struct ParamContext {
     pub params: IndexMap<String, String>,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct InterpolatedVariable {
     pub name: String,
     pub start: usize,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct InterpolatedString {
     pub value: String,
     pub parts: Vec<InterpolatedVariable>,
 }
 
 impl ParamContext {
+    #[must_use]
     pub fn has(&self, param_name: &str) -> bool {
         self.params.contains_key(param_name)
     }
@@ -40,6 +41,7 @@ impl ParamContext {
             .insert(param_name.to_string(), value.to_string());
     }
 
+    #[must_use]
     pub fn get(&self, param_name: &str) -> Option<&String> {
         self.params.get(param_name)
     }

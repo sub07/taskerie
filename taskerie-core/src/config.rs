@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use indexmap::IndexMap;
 use serde::Deserialize;
 
@@ -42,7 +44,7 @@ impl<'de> Deserialize<'de> for Action {
             {
                 let (task_name, params) = map
                     .next_entry::<String, IndexMap<String, String>>()?
-                    .ok_or(serde::de::Error::custom("Unexpected empty task"))?;
+                    .ok_or_else(|| serde::de::Error::custom("Unexpected empty task"))?;
 
                 if let Ok(Some(_)) = map.next_key::<String>() {
                     return Err(serde::de::Error::custom("Unexpected extra key"));
@@ -61,6 +63,7 @@ impl<'de> Deserialize<'de> for Action {
 
 #[derive(Deserialize, Debug)]
 pub struct Task {
+    pub working_directory: Option<PathBuf>,
     pub actions: Vec<Action>,
     #[serde(default)]
     pub on_failure: Vec<Action>,

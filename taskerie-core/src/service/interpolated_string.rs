@@ -8,19 +8,19 @@ impl FromStr for InterpolatedString {
     type Err = anyhow::Error;
 
     fn from_str(val: &str) -> Result<Self, Self::Err> {
-        let regex = regex::Regex::new(r#"\{\{\s*(.*?)\s*\}\}"#)?;
+        let interpolated_variable_regex = regex::Regex::new(r"\{\{\s*(.*?)\s*\}\}")?;
         let mut acc = 0;
 
-        let parts = regex
+        let parts = interpolated_variable_regex
             .captures_iter(val)
             .map(|captures| {
                 let value = captures
                     .get(1)
-                    .ok_or(anyhow::anyhow!("Could not find captured variable name"))?
+                    .ok_or_else(|| anyhow::anyhow!("Could not find captured variable name"))?
                     .as_str();
-                let whole = captures.get(0).ok_or(anyhow::anyhow!(
-                    "Could not find whole interpolated variable"
-                ))?;
+                let whole = captures
+                    .get(0)
+                    .ok_or_else(|| anyhow::anyhow!("Could not find whole interpolated variable"))?;
                 let start = whole.start() - acc;
                 let end = whole.end() - acc;
                 acc += whole.len();
@@ -34,14 +34,14 @@ impl FromStr for InterpolatedString {
             })
             .collect::<Result<Vec<_>, _>>()?;
         let mut value = val.to_owned();
-        for (variable, span_end) in parts.iter() {
+        for (variable, span_end) in &parts {
             value.replace_range(variable.start..*span_end, "");
         }
         let parts = parts
             .into_iter()
             .map(|(variable, _)| variable)
             .collect_vec();
-        Ok(InterpolatedString { value, parts })
+        Ok(Self { value, parts })
     }
 }
 
@@ -53,10 +53,12 @@ impl InterpolatedString {
             let mut rendered = self.value.clone();
             let mut acc = 0;
             for part in &self.parts {
-                let value = param_context.get(&part.name).ok_or(anyhow::anyhow!(
-                    "Could not find value for param {} during string interpolation",
-                    part.name
-                ))?;
+                let value = param_context.get(&part.name).ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Could not find value for param {} during string interpolation",
+                        part.name
+                    )
+                })?;
                 rendered.insert_str(part.start + acc, value);
                 acc += value.len();
             }
@@ -73,7 +75,7 @@ mod test {
     fn test_empty_string() {
         let input = "";
         let expected = InterpolatedString {
-            value: "".to_string(),
+            value: String::new(),
             parts: vec![],
         };
         assert_eq!(expected, InterpolatedString::from_str(input).unwrap());
@@ -83,7 +85,7 @@ mod test {
     fn test_single_variable() {
         let input = "{{name}}";
         let expected = InterpolatedString {
-            value: "".to_string(),
+            value: String::new(),
             parts: vec![InterpolatedVariable {
                 name: "name".to_string(),
                 start: 0,
@@ -156,7 +158,7 @@ mod test {
     #[test]
     fn test_render_empty_string() {
         let interpolated = InterpolatedString {
-            value: "".to_string(),
+            value: String::new(),
             parts: vec![],
         };
         let context = ParamContext::default();
