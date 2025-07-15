@@ -5,7 +5,9 @@ edition = "2024"
 
 [dependencies]
 taskerie-core.path = "../taskerie-core"
-anyhow.workspace = true
+
 inquire = "0"
+pretty_env_logger = "0"
+
 log.workspace = true
-pretty_env_logger.workspace = true
+anyhow.workspace = true

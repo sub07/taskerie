@@ -7,8 +7,6 @@ edition = "2024"
 serde = { version = "1", features = ["derive"] }
 serde_norway = "0"
 itertools = "0"
-try_map = "0"
-logos = "0"
 indexmap = { version = "2", features = ["serde"] }
 regex = "1"
 
