@@ -1,35 +1,25 @@
-use anyhow::anyhow;
+use indexmap::IndexMap;
 
-use crate::model::{ParamContext, action};
+use crate::{
+    config,
+    model::{self},
+};
 
-pub fn render_argument_parts(
-    parts: &[action::ArgumentPart],
-    param_context: &ParamContext,
-) -> anyhow::Result<String> {
-    let mut result = String::new();
+impl TryFrom<config::Action> for model::Action {
+    type Error = anyhow::Error;
 
-    render_argument_parts_in(parts, param_context, &mut result)?;
-
-    Ok(result)
-}
-pub fn render_argument_parts_in(
-    parts: &[action::ArgumentPart],
-    param_context: &ParamContext,
-    buffer: &mut String,
-) -> anyhow::Result<()> {
-    for part in parts {
-        match part {
-            action::ArgumentPart::Literal(literal) => {
-                buffer.push_str(literal);
+    fn try_from(action: config::Action) -> Result<Self, Self::Error> {
+        Ok(match action {
+            config::Action::TaskCall { name, params } => {
+                model::Action::TaskCall(model::action::TaskCall {
+                    name,
+                    params: params
+                        .into_iter()
+                        .map(|(key, value)| value.parse().map(|value| (key, value)))
+                        .collect::<Result<IndexMap<_, _>, _>>()?,
+                })
             }
-            action::ArgumentPart::Variable(param) => {
-                let value = param_context
-                    .get(param)
-                    .ok_or(anyhow!("Param `{param}` is not defined"))?;
-                buffer.push_str(value);
-            }
-        }
+            config::Action::Command(command) => model::Action::Command(command.parse()?),
+        })
     }
-
-    Ok(())
 }

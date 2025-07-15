@@ -7,3 +7,5 @@ edition = "2024"
 taskerie-core.path = "../taskerie-core"
 anyhow.workspace = true
 inquire = "0"
+log.workspace = true
+pretty_env_logger.workspace = true

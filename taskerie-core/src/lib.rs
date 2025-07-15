@@ -10,6 +10,7 @@ use model::TaskerieContext;
 
 pub fn load<P: AsRef<Path>>(path: P) -> anyhow::Result<TaskerieContext> {
     let config = serde_norway::from_str::<Root>(&fs::read_to_string(path)?)?;
+
     let tasks = config
         .tasks
         .into_iter()

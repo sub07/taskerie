@@ -11,17 +11,17 @@ impl TryFrom<config::Task> for model::task::Task {
             actions: value
                 .actions
                 .into_iter()
-                .map(|action| action.parse())
+                .map(|action| action.try_into())
                 .collect::<anyhow::Result<Vec<_>>>()?,
             on_success: value
                 .on_success
                 .into_iter()
-                .map(|action| action.parse())
+                .map(|action| action.try_into())
                 .collect::<anyhow::Result<Vec<_>>>()?,
             on_failure: value
                 .on_failure
                 .into_iter()
-                .map(|action| action.parse())
+                .map(|action| action.try_into())
                 .collect::<anyhow::Result<Vec<_>>>()?,
             params: value
                 .params

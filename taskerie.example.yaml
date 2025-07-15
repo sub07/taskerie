@@ -1,9 +1,11 @@
 tasks:
   greet_john:
     actions:
-      - :greet --name john --age 30
+      - greet:
+          name: john
+          age: 30
     on_failure:
-      - :generic_error_message
+      - generic_error_message:
 
   greet:
     params:
@@ -12,7 +14,8 @@ tasks:
     actions:
       - echo "hello {{ name }}, you are {{ age }}"
     on_success:
-      - :open_browser --url http://{{ name }}.com/
+      - open_browser:
+          url: http://{{ name }}.com/
 
   open_browser:
     params:
@@ -24,3 +27,9 @@ tasks:
   generic_error_message:
     actions:
       - echo "An error has occurred"
+
+  remove_test:
+    actions:
+      - New-Item "test.txt" -Verbose
+    on_success:
+      - Remove-Item "test.txt" -Verbose

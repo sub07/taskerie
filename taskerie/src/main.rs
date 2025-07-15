@@ -1,7 +1,12 @@
+use std::env;
+
 use anyhow::Context;
 use taskerie_core::model::ParamContext;
 
 fn main() -> anyhow::Result<()> {
+    unsafe { env::set_var("RUST_LOG", "DEBUG") };
+    pretty_env_logger::init();
+
     let path = if cfg!(debug_assertions) {
         "taskerie.example.yaml".to_string()
     } else {

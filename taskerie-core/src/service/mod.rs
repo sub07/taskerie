@@ -3,13 +3,12 @@ use std::{
     process::{Command, ExitStatus, Stdio},
 };
 
-use action::{render_argument_parts, render_argument_parts_in};
 use anyhow::{anyhow, bail};
 
-use crate::model::{self, ParamContext, TaskerieContext};
+use crate::model::{self, InterpolatedString, ParamContext, TaskerieContext};
 
 pub mod action;
-pub mod action_parser;
+pub mod interpolated_string;
 pub mod task_parser;
 
 impl TaskerieContext {
@@ -17,7 +16,7 @@ impl TaskerieContext {
         self.tasks.keys().cloned().collect()
     }
 
-    pub fn get_task_by_name(&self, name: &str) -> Option<&model::task::Task> {
+    pub fn get_task_by_name(&self, name: &str) -> Option<&model::Task> {
         self.tasks.get(name)
     }
 
@@ -65,31 +64,30 @@ impl TaskerieContext {
     ) -> anyhow::Result<ExitStatus> {
         match action {
             model::action::Action::Command(command) => run_command(command, param_context),
-            model::action::Action::Task(task) => self.run_action_target_task(task, param_context),
+            model::action::Action::TaskCall(task_call) => {
+                self.run_task_from_action(task_call, param_context)
+            }
         }
     }
 
-    fn run_action_target_task(
+    fn run_task_from_action(
         &self,
-        target_task: &model::action::TargetTask,
+        task_call: &model::action::TaskCall,
         param_context: &mut ParamContext,
     ) -> anyhow::Result<ExitStatus> {
         let task = self
-            .get_task_by_name(&target_task.name)
-            .ok_or(anyhow!("Task {} is not defined", target_task.name))?;
+            .get_task_by_name(&task_call.name)
+            .ok_or(anyhow!("Task {} is not defined", task_call.name))?;
         let mut task_param_context = ParamContext::default();
-        for (param_name, param_value) in target_task.params.iter() {
-            task_param_context.set(
-                param_name,
-                &render_argument_parts(param_value, param_context)?,
-            );
+        for (param_name, param_value) in task_call.params.iter() {
+            task_param_context.set(param_name, &param_value.render(param_context)?);
         }
         self.run_task(task, &mut task_param_context)
     }
 }
 
 fn run_command(
-    command: &model::action::Command,
+    command: &InterpolatedString,
     param_context: &mut ParamContext,
 ) -> anyhow::Result<ExitStatus> {
     let mut child = Command::new("pwsh")
@@ -99,23 +97,16 @@ fn run_command(
         .stdin(Stdio::piped())
         .spawn()?;
 
-    let mut shell_command = String::new();
+    let command = command.render(param_context)?;
 
-    shell_command.push_str(&command.name);
-
-    for parts in &command.arguments {
-        shell_command.push(' ');
-        shell_command.push('"');
-        render_argument_parts_in(parts, param_context, &mut shell_command)?;
-        shell_command.push('"');
-    }
+    log::debug!("executed command: {command}");
 
     writeln!(
         child.stdin.as_mut().ok_or(anyhow!(
             "Could not get powershell stdin for command {}",
-            command.name
+            command
         ))?,
-        "{shell_command}"
+        "{command}"
     )?;
 
     Ok(child.wait()?)

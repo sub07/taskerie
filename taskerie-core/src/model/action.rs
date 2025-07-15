@@ -1,25 +1,15 @@
 use indexmap::IndexMap;
 
-#[derive(PartialEq, Debug)]
-pub enum ArgumentPart {
-    Literal(String),
-    Variable(String),
-}
+use crate::model::InterpolatedString;
 
 #[derive(PartialEq, Debug)]
-pub struct Command {
+pub struct TaskCall {
     pub name: String,
-    pub arguments: Vec<Vec<ArgumentPart>>,
-}
-
-#[derive(PartialEq, Debug)]
-pub struct TargetTask {
-    pub name: String,
-    pub params: IndexMap<String, Vec<ArgumentPart>>,
+    pub params: IndexMap<String, InterpolatedString>,
 }
 
 #[derive(PartialEq, Debug)]
 pub enum Action {
-    Task(TargetTask),
-    Command(Command),
+    TaskCall(TaskCall),
+    Command(InterpolatedString),
 }

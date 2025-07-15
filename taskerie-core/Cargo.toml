@@ -10,5 +10,7 @@ itertools = "0"
 try_map = "0"
 logos = "0"
 indexmap = { version = "2", features = ["serde"] }
+regex = "1"
 
 anyhow.workspace = true
+log.workspace = true

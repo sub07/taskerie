@@ -20,5 +20,10 @@
     "label": "test",
     "command": "cargo",
     "args": ["test"]
+  },
+  {
+    "label": "check",
+    "command": "cargo",
+    "args": ["check"]
   }
 ]
