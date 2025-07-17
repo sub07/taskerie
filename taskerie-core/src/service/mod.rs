@@ -15,7 +15,11 @@ pub mod task_parser;
 impl TaskerieContext {
     #[must_use]
     pub fn get_all_task_names(&self) -> Vec<String> {
-        self.tasks.keys().cloned().collect()
+        self.tasks
+            .iter()
+            .filter(|task| !task.1.has_no_default_params())
+            .map(|task| task.0.clone())
+            .collect()
     }
 
     #[must_use]

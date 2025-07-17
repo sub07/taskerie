@@ -13,6 +13,13 @@ pub struct Task {
     pub params: IndexMap<String, Param>,
 }
 
+impl Task {
+    #[must_use]
+    pub fn has_no_default_params(&self) -> bool {
+        !self.params.is_empty() && self.params.values().any(|param| param.default.is_none())
+    }
+}
+
 #[derive(Debug)]
 pub struct Param {
     pub default: Option<String>,
