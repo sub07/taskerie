@@ -122,7 +122,7 @@ fn run_command(
 
     let command = command.render(param_context)?;
 
-    log::debug!("executed command: {command}");
+    println!("> {command}");
 
     writeln!(
         process
