@@ -29,7 +29,10 @@ tasks:
       - echo "An error has occurred"
 
   remove_test:
-    working_directory: taskerie-core/src
+    params:
+      path:
+        default: src
+    working_directory: taskerie-core/{{ path }}
     actions:
       - New-Item "test.txt" -Verbose
     on_success:

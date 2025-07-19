@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use indexmap::IndexMap;
 use serde::Deserialize;
 
@@ -63,7 +61,7 @@ impl<'de> Deserialize<'de> for Action {
 
 #[derive(Deserialize, Debug)]
 pub struct Task {
-    pub working_directory: Option<PathBuf>,
+    pub working_directory: Option<String>,
     pub actions: Vec<Action>,
     #[serde(default)]
     pub on_failure: Vec<Action>,

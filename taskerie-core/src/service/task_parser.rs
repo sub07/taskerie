@@ -30,7 +30,7 @@ impl TryFrom<config::Task> for model::task::Task {
                 .into_iter()
                 .map(|(name, param)| (name, param.into()))
                 .collect(),
-            working_directory: value.working_directory,
+            working_directory: value.working_directory.map(|dir| dir.parse()).transpose()?,
         })
     }
 }

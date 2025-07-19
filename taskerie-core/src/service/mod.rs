@@ -1,10 +1,10 @@
 use std::{
     io::Write,
-    path::Path,
+    path::PathBuf,
     process::{Command, ExitStatus, Stdio},
 };
 
-use anyhow::{anyhow, bail};
+use anyhow::{Context, anyhow, bail};
 
 use crate::model::{self, InterpolatedString, ParamContext, TaskerieContext};
 
@@ -45,13 +45,13 @@ impl TaskerieContext {
 
         for action in &task.actions {
             let action_status =
-                self.run_action(action, task.working_directory.as_deref(), param_context)?;
+                self.run_action(action, task.working_directory.as_ref(), param_context)?;
             if !action_status.success() {
                 for failure_action in &task.on_failure {
                     if !self
                         .run_action(
                             failure_action,
-                            task.working_directory.as_deref(),
+                            task.working_directory.as_ref(),
                             param_context,
                         )?
                         .success()
@@ -67,7 +67,7 @@ impl TaskerieContext {
             if !self
                 .run_action(
                     success_action,
-                    task.working_directory.as_deref(),
+                    task.working_directory.as_ref(),
                     param_context,
                 )?
                 .success()
@@ -82,7 +82,7 @@ impl TaskerieContext {
     fn run_action(
         &self,
         action: &model::action::Action,
-        working_directory: Option<&Path>,
+        working_directory: Option<&InterpolatedString>,
         param_context: &ParamContext,
     ) -> anyhow::Result<ExitStatus> {
         match action {
@@ -113,20 +113,34 @@ impl TaskerieContext {
 
 fn run_command(
     command: &InterpolatedString,
-    working_directory: Option<&Path>,
+    working_directory: Option<&InterpolatedString>,
     param_context: &ParamContext,
 ) -> anyhow::Result<ExitStatus> {
+    let current_dir = working_directory
+        .map(|dir| dir.render(param_context))
+        .transpose()?
+        .unwrap_or_else(|| "./".into());
+
+    let current_dir = PathBuf::from(&*current_dir);
+
+    let command = command.render(param_context)?;
+    println!(
+        "{}> {command}",
+        current_dir
+            .canonicalize()
+            .with_context(|| current_dir.display().to_string())?
+            .display()
+            .to_string()
+            .trim_start_matches(r"\\?\")
+    );
+
     let mut process = Command::new("pwsh")
         .arg("-NonInteractive")
         .arg("-Command")
         .arg("-")
-        .current_dir(working_directory.unwrap_or_else(|| Path::new("./")))
+        .current_dir(current_dir)
         .stdin(Stdio::piped())
         .spawn()?;
-
-    let command = command.render(param_context)?;
-
-    println!("> {command}");
 
     writeln!(
         process
