@@ -36,7 +36,18 @@ fn main() -> anyhow::Result<()> {
             .get_task_by_name(&selected_task)
             .expect("Come from list, so should exist");
 
-        taskerie.run_task(task, &mut ParamContext::default())?;
+        match taskerie.run_task(task, &mut ParamContext::default()) {
+            Ok(exit_status) => {
+                if exit_status.success() {
+                    println!("Task {selected_task} completed successfully");
+                } else {
+                    println!("Task {selected_task} failed");
+                }
+            }
+            Err(err) => {
+                println!("Task {selected_task} could not be executed: {err}");
+            }
+        }
     }
 
     Ok(())
