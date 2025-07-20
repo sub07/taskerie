@@ -1,6 +1,7 @@
 mod config;
+pub mod message;
 pub mod model;
-mod service;
+pub mod service;
 
 use std::{fs, path::Path};
 

@@ -9,6 +9,7 @@ serde_norway = "0"
 itertools = "0"
 indexmap = { version = "2", features = ["serde"] }
 regex = "1"
+subprocess = "0"
 
 anyhow.workspace = true
 log.workspace = true

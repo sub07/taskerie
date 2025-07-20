@@ -64,10 +64,6 @@ pub struct Task {
     pub working_directory: Option<String>,
     pub actions: Vec<Action>,
     #[serde(default)]
-    pub on_failure: Vec<Action>,
-    #[serde(default)]
-    pub on_success: Vec<Action>,
-    #[serde(default)]
     pub params: IndexMap<String, Param>,
 }
 

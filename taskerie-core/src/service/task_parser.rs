@@ -15,16 +15,6 @@ impl TryFrom<config::Task> for model::task::Task {
                 .into_iter()
                 .map(TryInto::try_into)
                 .collect::<anyhow::Result<Vec<_>>>()?,
-            on_success: value
-                .on_success
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<anyhow::Result<Vec<_>>>()?,
-            on_failure: value
-                .on_failure
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<anyhow::Result<Vec<_>>>()?,
             params: value
                 .params
                 .into_iter()

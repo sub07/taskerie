@@ -24,7 +24,7 @@ impl FromStr for InterpolatedString {
                 let start = whole.start() - acc;
                 let end = whole.end() - acc;
                 acc += whole.len();
-                Ok::<_, anyhow::Error>((
+                anyhow::Ok((
                     InterpolatedVariable {
                         name: value.to_string(),
                         start,

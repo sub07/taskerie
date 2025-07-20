@@ -1,12 +1,16 @@
 use std::{
-    io::Write,
+    io::{BufRead, BufReader},
     path::PathBuf,
-    process::{Command, ExitStatus, Stdio},
+    sync::mpsc,
 };
 
-use anyhow::{Context, anyhow, bail};
+use anyhow::{anyhow, bail};
+use subprocess::{Exec, ExitStatus, Redirection};
 
-use crate::model::{self, InterpolatedString, ParamContext, TaskerieContext};
+use crate::{
+    message::ExecutionMessage,
+    model::{self, InterpolatedString, ParamContext, TaskerieContext},
+};
 
 pub mod action;
 pub mod interpolated_string;
@@ -14,23 +18,37 @@ pub mod task_parser;
 
 impl TaskerieContext {
     #[must_use]
-    pub fn get_all_task_names(&self) -> Vec<String> {
+    pub fn get_all_standalone_task_names(&self) -> Vec<String> {
         self.tasks
             .iter()
-            .filter(|task| !task.1.has_no_default_params())
+            .filter(|task| task.1.is_standalone())
             .map(|task| task.0.clone())
             .collect()
     }
 
     #[must_use]
-    pub fn get_task_by_name(&self, name: &str) -> Option<&model::Task> {
-        self.tasks.get(name)
+    fn get_task_by_name<S: AsRef<str>>(&self, name: S) -> Option<&model::Task> {
+        self.tasks.get(name.as_ref())
     }
 
-    pub fn run_task(
+    pub fn run_task_by_name<S: AsRef<str>>(
+        &self,
+        name: S,
+        param_context: &mut ParamContext,
+        execution_message_sender: &mpsc::Sender<ExecutionMessage>,
+    ) -> anyhow::Result<ExitStatus> {
+        if let Some(task) = self.get_task_by_name(name) {
+            self.run_task(task, param_context, execution_message_sender)
+        } else {
+            bail!("Task not found");
+        }
+    }
+
+    fn run_task(
         &self,
         task: &model::task::Task,
         param_context: &mut ParamContext,
+        execution_message_sender: &mpsc::Sender<ExecutionMessage>,
     ) -> anyhow::Result<ExitStatus> {
         for (name, param) in &task.params {
             if param_context.has(name) {
@@ -39,44 +57,27 @@ impl TaskerieContext {
             if let Some(default_value) = &param.default {
                 param_context.set(name, default_value);
             } else {
-                bail!("Task param {name} doesn't have any value and has no default value provided");
+                execution_message_sender.send(ExecutionMessage::MissingRequiredTaskParameter {
+                    parameter_name: name.clone(),
+                })?;
+                return Ok(ExitStatus::Undetermined);
             }
         }
 
         for action in &task.actions {
-            let action_status =
-                self.run_action(action, task.working_directory.as_ref(), param_context)?;
-            if !action_status.success() {
-                for failure_action in &task.on_failure {
-                    if !self
-                        .run_action(
-                            failure_action,
-                            task.working_directory.as_ref(),
-                            param_context,
-                        )?
-                        .success()
-                    {
-                        eprintln!("Failure action failed");
-                    }
-                }
-                return Ok(action_status);
+            let status = self.run_action(
+                action,
+                task.working_directory.as_ref(),
+                param_context,
+                execution_message_sender,
+            )?;
+
+            if !status.success() {
+                break;
             }
         }
 
-        for success_action in &task.on_success {
-            if !self
-                .run_action(
-                    success_action,
-                    task.working_directory.as_ref(),
-                    param_context,
-                )?
-                .success()
-            {
-                eprintln!("Success action failed");
-            }
-        }
-
-        Ok(ExitStatus::default())
+        Ok(ExitStatus::Exited(0))
     }
 
     fn run_action(
@@ -84,13 +85,17 @@ impl TaskerieContext {
         action: &model::action::Action,
         working_directory: Option<&InterpolatedString>,
         param_context: &ParamContext,
+        execution_message_sender: &mpsc::Sender<ExecutionMessage>,
     ) -> anyhow::Result<ExitStatus> {
         match action {
-            model::action::Action::Command(command) => {
-                run_command(command, working_directory, param_context)
-            }
+            model::action::Action::Command(command) => run_command(
+                command,
+                working_directory,
+                param_context,
+                execution_message_sender,
+            ),
             model::action::Action::TaskCall(task_call) => {
-                self.run_task_from_action(task_call, param_context)
+                self.run_task_from_action(task_call, param_context, execution_message_sender)
             }
         }
     }
@@ -99,6 +104,7 @@ impl TaskerieContext {
         &self,
         task_call: &model::action::TaskCall,
         param_context: &ParamContext,
+        execution_message_sender: &mpsc::Sender<ExecutionMessage>,
     ) -> anyhow::Result<ExitStatus> {
         let task = self
             .get_task_by_name(&task_call.name)
@@ -107,7 +113,7 @@ impl TaskerieContext {
         for (param_name, param_value) in &task_call.params {
             task_param_context.set(param_name, &param_value.render(param_context)?);
         }
-        self.run_task(task, &mut task_param_context)
+        self.run_task(task, &mut task_param_context, execution_message_sender)
     }
 }
 
@@ -115,40 +121,60 @@ fn run_command(
     command: &InterpolatedString,
     working_directory: Option<&InterpolatedString>,
     param_context: &ParamContext,
+    execution_message_sender: &mpsc::Sender<ExecutionMessage>,
 ) -> anyhow::Result<ExitStatus> {
     let current_dir = working_directory
         .map(|dir| dir.render(param_context))
         .transpose()?
         .unwrap_or_else(|| "./".into());
 
-    let current_dir = PathBuf::from(&*current_dir);
-
+    let Ok(current_dir) = PathBuf::from(&*current_dir).canonicalize() else {
+        execution_message_sender.send(ExecutionMessage::WorkingDirectoryNotFound {
+            path: current_dir.clone().into_owned(),
+        })?;
+        return Ok(ExitStatus::Undetermined);
+    };
+    let current_dir_str = current_dir.display().to_string();
     let command = command.render(param_context)?;
-    println!(
-        "{}> {command}",
-        current_dir
-            .canonicalize()
-            .with_context(|| current_dir.display().to_string())?
-            .display()
-            .to_string()
-            .trim_start_matches(r"\\?\")
-    );
 
-    let mut process = Command::new("pwsh")
+    execution_message_sender.send(ExecutionMessage::AboutToRunCommand {
+        command: command.clone().into_owned(),
+        working_directory: current_dir_str.clone(),
+    })?;
+
+    let mut process = Exec::cmd("pwsh")
         .arg("-NonInteractive")
         .arg("-Command")
-        .arg("-")
-        .current_dir(current_dir)
-        .stdin(Stdio::piped())
-        .spawn()?;
+        .arg(command.clone().into_owned())
+        .cwd(current_dir)
+        .stdout(Redirection::Pipe)
+        .stderr(Redirection::Merge)
+        .popen()?;
 
-    writeln!(
+    let output_reader = BufReader::new(
         process
-            .stdin
+            .stdout
             .as_mut()
-            .ok_or_else(|| anyhow!("Could not get powershell stdin for command {}", command))?,
-        "{command}"
-    )?;
+            .ok_or_else(|| anyhow!("Could not get powershell stdout {}", command))?,
+    );
 
-    Ok(process.wait()?)
+    for line in output_reader.lines() {
+        execution_message_sender.send(ExecutionMessage::CommandOutput { output: line? })?;
+    }
+
+    if process.wait()?.success() {
+        execution_message_sender.send(ExecutionMessage::CommandSucceeded {
+            command: command.clone().into_owned(),
+            working_directory: current_dir_str,
+        })?;
+    } else {
+        execution_message_sender.send(ExecutionMessage::CommandFailed {
+            command: command.clone().into_owned(),
+            working_directory: current_dir_str,
+        })?;
+    }
+
+    Ok(process
+        .exit_status()
+        .expect("Exit status is available because the process is done already"))
 }

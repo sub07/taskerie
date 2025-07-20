@@ -1,21 +1,32 @@
+use std::{
+    io::stdout,
+    path::Path,
+    sync::{Arc, mpsc},
+    thread,
+};
+
 use anyhow::Context;
-use taskerie_core::model::ParamContext;
+use crossterm::{
+    cursor::{MoveTo, RestorePosition, SavePosition},
+    style::{Color, Print, ResetColor, SetForegroundColor},
+};
+use taskerie_core::{message::ExecutionMessage, model::ParamContext};
 
 fn main() -> anyhow::Result<()> {
     pretty_env_logger::init();
 
     let path = if cfg!(debug_assertions) {
-        "taskerie.example.yaml".to_string()
+        Path::new("taskerie.example.yaml")
     } else {
-        "taskerie.yaml".to_string()
+        Path::new("taskerie.yaml")
     };
-    let mut taskerie = taskerie_core::load(path.clone()).with_context(|| path.clone())?;
+    let mut taskerie = Arc::new(taskerie_core::load(path).with_context(|| path.display())?);
 
     let reload = "\u{2699}  Reload taskerie".to_string();
     let exit = "\u{2699}  Exit".to_string();
 
     loop {
-        let mut task_names = taskerie.get_all_task_names();
+        let mut task_names = taskerie.get_all_standalone_task_names();
         task_names.push(reload.clone());
         task_names.push(exit.clone());
 
@@ -23,7 +34,8 @@ fn main() -> anyhow::Result<()> {
             inquire::Select::new("Select a task to execute", task_names).prompt()?;
 
         if selected_task == reload {
-            taskerie = taskerie_core::load(path.clone()).with_context(|| path.clone())?;
+            debug_assert_eq!(Arc::strong_count(&taskerie), 1);
+            taskerie = Arc::new(taskerie_core::load(path).with_context(|| path.display())?);
             println!("Sucessfully reloaded");
             continue;
         }
@@ -32,21 +44,78 @@ fn main() -> anyhow::Result<()> {
             break;
         }
 
-        let task = taskerie
-            .get_task_by_name(&selected_task)
-            .expect("Come from list, so should exist");
+        let (tx, rx) = mpsc::channel();
+        let executor_taskerie = taskerie.clone();
+        let executor_selected_task = selected_task.clone();
 
-        match taskerie.run_task(task, &mut ParamContext::default()) {
-            Ok(exit_status) => {
-                if exit_status.success() {
-                    println!("Task {selected_task} completed successfully");
-                } else {
-                    println!("Task {selected_task} failed");
+        let executor_thread = thread::spawn(move || {
+            executor_taskerie.run_task_by_name(
+                executor_selected_task,
+                &mut ParamContext::default(),
+                &tx,
+            )?;
+            anyhow::Ok(())
+        });
+
+        let mut current_command_position = None;
+
+        for message in rx {
+            match message {
+                ExecutionMessage::MissingRequiredTaskParameter { parameter_name } => {
+                    println!(
+                        "Parameter '{parameter_name}' is undefined and has no default value provided"
+                    );
+                }
+                ExecutionMessage::WorkingDirectoryNotFound { path } => {
+                    println!("\u{274C} Requested working directory \"{path}\" not found");
+                }
+                ExecutionMessage::AboutToRunCommand {
+                    command,
+                    working_directory,
+                } => {
+                    current_command_position = Some(crossterm::cursor::position()?);
+                    println!("\u{231B} {working_directory}> {command}");
+                }
+                ExecutionMessage::CommandFailed {
+                    command,
+                    working_directory,
+                } => {
+                    let command_position = current_command_position.expect("has been set before");
+                    crossterm::execute!(
+                        stdout(),
+                        SavePosition,
+                        MoveTo(command_position.0, command_position.1),
+                        Print(format!("\u{274C} {working_directory}> {command}")),
+                        RestorePosition,
+                    )?;
+                }
+                ExecutionMessage::CommandSucceeded {
+                    command,
+                    working_directory,
+                } => {
+                    let command_position = current_command_position.expect("has been set before");
+                    crossterm::execute!(
+                        stdout(),
+                        SavePosition,
+                        MoveTo(command_position.0, command_position.1),
+                        Print(format!("\u{2705} {working_directory}> {command}")),
+                        RestorePosition,
+                    )?;
+                }
+                ExecutionMessage::CommandOutput { output } => {
+                    crossterm::execute!(
+                        stdout(),
+                        SetForegroundColor(Color::Blue),
+                        Print(">>>"),
+                        ResetColor,
+                    )?;
+                    println!("    {output}");
                 }
             }
-            Err(err) => {
-                println!("Task {selected_task} could not be executed: {err}");
-            }
+        }
+
+        if let Err(e) = executor_thread.join().unwrap() {
+            eprintln!("Error executing task: {e}");
         }
     }
 

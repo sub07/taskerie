@@ -4,8 +4,6 @@ tasks:
       - greet:
           name: john
           age: 30
-    on_failure:
-      - generic_error_message:
 
   greet:
     params:
@@ -13,7 +11,6 @@ tasks:
       age:
     actions:
       - echo "hello {{ name }}, you are {{ age }}"
-    on_success:
       - open_browser:
           url: http://{{ name }}.com/
 
@@ -35,5 +32,5 @@ tasks:
     working_directory: taskerie-core/{{ path }}
     actions:
       - New-Item "test.txt" -Verbose
-    on_success:
+      - Start-Sleep -Seconds 2
       - Remove-Item "test.txt" -Verbose
