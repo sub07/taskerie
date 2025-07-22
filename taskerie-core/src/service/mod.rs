@@ -163,15 +163,9 @@ fn run_command(
     }
 
     if process.wait()?.success() {
-        execution_message_sender.send(ExecutionMessage::CommandSucceeded {
-            command: command.clone().into_owned(),
-            working_directory: current_dir_str,
-        })?;
+        execution_message_sender.send(ExecutionMessage::CommandSucceeded)?;
     } else {
-        execution_message_sender.send(ExecutionMessage::CommandFailed {
-            command: command.clone().into_owned(),
-            working_directory: current_dir_str,
-        })?;
+        execution_message_sender.send(ExecutionMessage::CommandFailed)?;
     }
 
     Ok(process

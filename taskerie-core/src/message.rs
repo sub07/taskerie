@@ -12,12 +12,6 @@ pub enum ExecutionMessage {
     CommandOutput {
         output: String,
     },
-    CommandFailed {
-        command: String,
-        working_directory: String,
-    },
-    CommandSucceeded {
-        command: String,
-        working_directory: String,
-    },
+    CommandFailed,
+    CommandSucceeded,
 }

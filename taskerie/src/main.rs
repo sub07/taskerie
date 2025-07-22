@@ -57,8 +57,6 @@ fn main() -> anyhow::Result<()> {
             anyhow::Ok(())
         });
 
-        let mut current_command_position = None;
-
         for message in rx {
             match message {
                 ExecutionMessage::MissingRequiredTaskParameter { parameter_name } => {
@@ -73,43 +71,16 @@ fn main() -> anyhow::Result<()> {
                     command,
                     working_directory,
                 } => {
-                    current_command_position = Some(crossterm::cursor::position()?);
-                    println!("\u{231B} {working_directory}> {command}");
+                    println!("\u{231C} {working_directory}> {command}");
                 }
-                ExecutionMessage::CommandFailed {
-                    command,
-                    working_directory,
-                } => {
-                    let command_position = current_command_position.expect("has been set before");
-                    crossterm::execute!(
-                        stdout(),
-                        SavePosition,
-                        MoveTo(command_position.0, command_position.1),
-                        Print(format!("\u{274C} {working_directory}> {command}")),
-                        RestorePosition,
-                    )?;
+                ExecutionMessage::CommandFailed => {
+                    println!("\u{231E}\u{274C}");
                 }
-                ExecutionMessage::CommandSucceeded {
-                    command,
-                    working_directory,
-                } => {
-                    let command_position = current_command_position.expect("has been set before");
-                    crossterm::execute!(
-                        stdout(),
-                        SavePosition,
-                        MoveTo(command_position.0, command_position.1),
-                        Print(format!("\u{2705} {working_directory}> {command}")),
-                        RestorePosition,
-                    )?;
+                ExecutionMessage::CommandSucceeded => {
+                    println!("\u{231E}\u{2705}");
                 }
                 ExecutionMessage::CommandOutput { output } => {
-                    crossterm::execute!(
-                        stdout(),
-                        SetForegroundColor(Color::Blue),
-                        Print(">>>"),
-                        ResetColor,
-                    )?;
-                    println!("    {output}");
+                    println!("\u{23B8}{output}");
                 }
             }
         }
