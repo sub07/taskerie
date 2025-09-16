@@ -25,6 +25,27 @@ tasks:
     actions:
       - echo "An error has occurred"
 
+  default:
+    actions:
+      - echo "default task"
+
+  my_task:
+    actions:
+      - echo "my task"
+
+  my_function:
+    actions:
+      - echo "my function"
+
+  my_function_with_params:
+    params:
+      param1:
+      param2:
+    actions:
+      - echo "my function with params"
+      - 'echo "param1: {{ param1 }}"'
+      - 'echo "param2: {{ param2 }}"'
+
   remove_test:
     params:
       path:

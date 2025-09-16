@@ -139,7 +139,7 @@ fn run_command(
 
     execution_message_sender.send(ExecutionMessage::AboutToRunCommand {
         command: command.clone().into_owned(),
-        working_directory: current_dir_str.clone(),
+        working_directory: current_dir_str,
     })?;
 
     let mut process = Exec::cmd("pwsh")

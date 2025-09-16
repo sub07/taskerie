@@ -46,7 +46,7 @@ impl FromStr for InterpolatedString {
 }
 
 impl InterpolatedString {
-    pub fn render(&self, param_context: &ParamContext) -> anyhow::Result<Cow<str>> {
+    pub fn render(&self, param_context: &ParamContext) -> anyhow::Result<Cow<'_, str>> {
         if self.parts.is_empty() {
             Ok(Cow::Borrowed(&self.value))
         } else {

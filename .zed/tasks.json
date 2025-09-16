@@ -3,7 +3,7 @@
 // Example:
 [
   {
-    "label": "run",
+    "label": "run r",
     "command": "cargo",
     "args": ["run"],
     // "env": {
@@ -17,12 +17,12 @@
     "shell": "system"
   },
   {
-    "label": "test",
+    "label": "run t",
     "command": "cargo",
     "args": ["test"]
   },
   {
-    "label": "check",
+    "label": "run c",
     "command": "cargo",
     "args": ["check"]
   }

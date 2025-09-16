@@ -1,15 +1,10 @@
 use std::{
-    io::stdout,
     path::Path,
     sync::{Arc, mpsc},
     thread,
 };
 
 use anyhow::Context;
-use crossterm::{
-    cursor::{MoveTo, RestorePosition, SavePosition},
-    style::{Color, Print, ResetColor, SetForegroundColor},
-};
 use taskerie_core::{message::ExecutionMessage, model::ParamContext};
 
 fn main() -> anyhow::Result<()> {
@@ -30,8 +25,9 @@ fn main() -> anyhow::Result<()> {
         task_names.push(reload.clone());
         task_names.push(exit.clone());
 
-        let selected_task =
-            inquire::Select::new("Select a task to execute", task_names).prompt()?;
+        let selected_task = inquire::Select::new("Select a task to execute", task_names)
+            .with_page_size(999)
+            .prompt()?;
 
         if selected_task == reload {
             debug_assert_eq!(Arc::strong_count(&taskerie), 1);
