@@ -1,4 +1,5 @@
 use std::{
+    env::args,
     path::Path,
     sync::{Arc, mpsc},
     thread,
@@ -25,9 +26,14 @@ fn main() -> anyhow::Result<()> {
         task_names.push(reload.clone());
         task_names.push(exit.clone());
 
-        let selected_task = inquire::Select::new("Select a task to execute", task_names)
-            .with_page_size(999)
-            .prompt()?;
+        let task_name_arg = args().nth(1);
+        let selected_task = if let Some(task_name) = &task_name_arg {
+            task_name.clone()
+        } else {
+            inquire::Select::new("Select a task to execute", task_names)
+                .with_page_size(999)
+                .prompt()?
+        };
 
         if selected_task == reload {
             debug_assert_eq!(Arc::strong_count(&taskerie), 1);
@@ -82,7 +88,11 @@ fn main() -> anyhow::Result<()> {
         }
 
         if let Err(e) = executor_thread.join().unwrap() {
-            eprintln!("Error executing task: {e}");
+            eprintln!("\u{274C} Error executing task {selected_task}: {e}");
+        }
+
+        if task_name_arg.is_some() {
+            break;
         }
     }
 
